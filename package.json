@@ -1,16 +1,15 @@
 {
-  "name": "dsh-browser-plus",
+  "name": "dsh-git-sidebar",
   "version": "0.1.0",
-  "description": "为 DeepSeek Harness Web 添加侧边栏浏览器，输入框智能识别：网址直接访问，非网址走 Bing 搜索。",
+  "description": "为 DeepSeek Harness Web 侧边栏添加 Git 卡片（排在浏览器下方），点进去顶部显示当前仓库的 git 更改。",
   "keywords": [
     "dsh",
     "deepseek-harness",
     "plugin",
     "web",
-    "browser",
+    "git",
     "sidebar",
-    "bing",
-    "search"
+    "vcs"
   ],
   "license": "MIT",
   "type": "module",

@@ -1,105 +1,90 @@
-# dsh-browser-plus
+# dsh-git-sidebar
 
-为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web 界面添加一个**侧边栏浏览器**，核心特性是**智能输入框**：输入网址直接访问，输入非网址自动走 Bing 搜索。
+为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web 侧边栏添加一个 **Git 卡片**（排在浏览器卡片下方），点进去顶部显示当前仓库的 git 更改。
 
 ## 特性
 
-- 设置弹窗左侧导航新增 **“浏览器”** 菜单项
-- **智能输入框**（核心）：
-  - `https://example.com` → 直接访问
-  - `example.com` / `example.com/path` → 补 `https://` 后访问
-  - `1.2.3.4` → 当作 IP 地址访问
-  - `deepseek harness 是什么` → Bing 搜索
-  - `deepseek` → Bing 搜索（单词不含点，视为搜索词）
-- 输入框右侧实时显示提示徽标：`将直接访问` / `将使用 Bing 搜索`
-- 浏览器工具栏：后退 / 前进 / 刷新 / 主页 / 在新标签页打开
-- iframe 渲染目标页面，带 `sandbox` 安全限制
+- 设置弹窗左侧导航新增 **“Git”** 菜单项，`order: 101`（排在浏览器 `order: 100` 下方）
+- 点进去**顶部显示 git 更改**：
+  - 分支名 / 上游 / ahead / behind
+  - 已暂存 / 未暂存 / 未跟踪 / 总计 计数徽标
+  - 工作区干净 / 有未提交更改 状态提示
+- **更改文件列表**：每个文件显示状态徽标（改/增/删/移/复/冲/新/型）+ 路径 + 暂存状态
+- **点击文件查看 diff**：带语法着色（增绿/删红/位置蓝），支持暂存区与工作区 diff
+- 刷新按钮，手动重新读取状态
 - 界面**中英双语**：跟随 DSH 设置面板语言
-- 纯前端 + 两个只读 HTTP 端点，不写任何配置、不改动持久化数据
-
-## 智能识别规则
-
-| 输入 | 识别为 | 目标 URL |
-|------|--------|----------|
-| `https://github.com` | URL | `https://github.com` |
-| `http://localhost:3000` | URL | `http://localhost:3000` |
-| `github.com` | URL | `https://github.com` |
-| `github.com/wisebreeze` | URL | `https://github.com/wisebreeze` |
-| `1.2.3.4` | URL | `https://1.2.3.4` |
-| `1.2.3.4:8080` | URL | `https://1.2.3.4:8080` |
-| `deepseek harness` | 搜索 | `https://www.bing.com/search?q=deepseek%20harness` |
-| `deepseek` | 搜索 | `https://www.bing.com/search?q=deepseek` |
-| `12345` | 搜索 | `https://www.bing.com/search?q=12345` |
-| `mailto:a@b.com` | 搜索 | `https://www.bing.com/search?q=mailto%3Aa%40b.com` |
-
-判定逻辑（Host 半区 `resolveInput`）：
-
-1. 已带 `http://` / `https://` scheme → 严格校验后直接访问
-2. 不含空格且形如 `域名.TLD` 或 `IP` → 补 `https://` 后访问
-3. 其他情况（含空格、纯数字、单词等）→ Bing 搜索
+- 纯前端 + 两个只读 HTTP 端点，不执行任何写操作（不 add / commit / push）
 
 ## 工作原理
 
 ```
-浏览器输入框
-   │  用户按回车
-   ▼
-fetch GET /dsh-browser-plus/resolve?q=<输入>
-   │
+浏览器 "Git" 卡片
+   │  fetch GET /dsh-git-sidebar/status
    ▼
 Host 半区 (lib/index.js)
-   │  resolveInput(input) 智能判定
+   │  1. git status --porcelain=v1 -b  → 分支 + 文件状态
+   │  2. 解析 XY 状态码 → 暂存区/工作区/未跟踪分类
+   │  3. 统计计数
    ▼
-JSON { ok, kind: 'url'|'search', url }
-   │
+JSON { ok, branch, upstream, ahead, behind, counts, files, clean }
+
+点击文件
+   │  fetch GET /dsh-git-sidebar/diff?file=<path>&staged=<0|1>
    ▼
-iframe.src = url  →  渲染目标页面
+Host 半区
+   │  git diff [--cached] -- <file>
+   ▼
+JSON { ok, diff }
 ```
+
+## 文件状态徽标
+
+| 徽标 | 含义 | 颜色 |
+|------|------|------|
+| 改 (M) | Modified | 橙 |
+| 增 (A) | Added | 绿 |
+| 删 (D) | Deleted | 红 |
+| 移 (R) | Renamed | 蓝 |
+| 复 (C) | Copied | 蓝 |
+| 冲 (U) | Unmerged/Conflict | 紫 |
+| 新 (?) | Untracked | 灰 |
+| 型 (T) | Typechange | 青 |
 
 ## 安装
 
-### 1. 通过 DSH CLI 安装
-
 ```bash
-dsh plugin --profile web add dsh-browser-plus
-# 或从 GitHub 安装（未发布 npm 时）：
-dsh plugin --profile web add 'github:wisebreeze/dsh-browser-plus'
+dsh plugin --profile web add dsh-git-sidebar
+# 或从 GitHub 安装：
+dsh plugin --profile web add 'github:wisebreeze/dsh-git-sidebar'
 ```
 
-### 2. 重启并查看
-
-重启 `dsh web`，打开设置弹窗 → 左侧导航中的 **“浏览器”**，输入网址或搜索词即可。
+重启 `dsh web`，打开设置弹窗 → 左侧导航中浏览器下方的 **“Git”**。
 
 ## 卸载
 
 ```bash
-dsh plugin --profile web remove dsh-browser-plus
+dsh plugin --profile web remove dsh-git-sidebar
 ```
 
 ## 目录结构
 
 ```
-dsh-browser-plus/
+dsh-git-sidebar/
 ├── lib/
-│   ├── index.js      # Host 半区:注册 /resolve + /proxy 端点
-│   └── client.js     # 浏览器半区 bundle:侧边栏浏览器 UI
+│   ├── index.js      # Host 半区:注册 /status + /diff 端点
+│   └── client.js     # 浏览器半区 bundle:Git 卡片 UI
 ├── package.json      # dsh.client 声明 + exports
 ├── cordis.patch.yml  # 组合 overlay(安装即用)
 ├── README.md
 └── LICENSE           # MIT
 ```
 
-## 开发与本地修改
-
-- 客户端代码是**手写 bundle**（纯 JS + `require("react")`，无构建工具链）：修改 `lib/client.js` 后刷新页面即生效。
-- Host 半区是标准 ESM 插件：修改 `lib/index.js` 后重启 `dsh web`。
-- 发布到 npm 前请同步 `package.json` 与 `lib/index.js` 中的 `PLUGIN_VERSION`。
-
 ## 安全说明
 
-- 代理端点 `/dsh-browser-plus/proxy` 拒绝本地/内网地址（`localhost` / `127.0.0.0/8` / `10.0.0.0/8` / `172.16.0.0/12` / `192.168.0.0/16` / `169.254.0.0/16` / `::1`），避免成为 SSRF 跳板。
-- iframe 带 `sandbox="allow-scripts allow-same-origin allow-forms allow-popups"` 与 `referrerPolicy="no-referrer"`。
-- 所有端点只读、无副作用。
+- 仅调用 git 的**只读子命令**（`status` / `diff` / `rev-parse`），不执行任何写操作。
+- `GIT_TERMINAL_PROMPT=0` 禁止 git 弹出凭证提示，避免挂起。
+- 命令执行超时 8 秒，防止慢仓库卡住 Web 端点。
+- diff 输出限制 4MB，防止超大 diff 撑爆内存。
 
 ## 许可证
 
