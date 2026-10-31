@@ -1,0 +1,12 @@
+# dsh-browser-plus bundle patch
+#
+# 通过官方 CLI 安装:
+#   dsh plugin --profile <name> add dsh-browser-plus
+#   # 或未发布 npm 时:
+#   dsh plugin --profile <name> add 'github:wisebreeze/dsh-browser-plus'
+#
+# profile 启动时本 patch 被合并,与手动在 profile 的 cordis.patch.yml
+# 里写挂载行的效果完全一致。
+- insert:
+    - id: dsh-browser-plus
+      name: 'dsh-browser-plus'
